@@ -3,6 +3,8 @@ import React, {useState, useEffect} from "react";
 import ReactHtmlParser from 'react-html-parser';
 import { fullDictionary } from "../database/translator";
 import Modal from './Modal';
+import styled from 'styled-components';
+import { GlobalStyle } from './global-style';
 
 
 type CharType = {
@@ -24,9 +26,32 @@ interface leftoverWordType {
   char: string;
 }
 
+interface ModuleProps {
+  [key: string]: string;
+}
+
+const theClipboard = navigator.clipboard;
 
 
 
+const Container = styled.div`
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+`
+
+const Button = styled.button`
+  min-width: 50px;
+  padding: 16px 32px;
+  border-radius: 4px;
+  border: none;
+  background: #141414;
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+`
 
 const AppView: React.FC = () => {
 
@@ -48,13 +73,25 @@ const AppView: React.FC = () => {
   occur: 0,
   index: 0}]);
   const [openModal, setOpenModal]= useState(false);
-  const [modalContent, setModalContent]=useState<string[]>([]);
-  const [numModal, setNumModal] = useState(0);
+  const [modalContent, setModalContent]=useState<ModuleProps>({});
+  const [charModal, setCharModal] = useState('');
+  const [previousClipboardText, setPreviousClipboardText ]=useState('');
+  const [interval, setInter]=useState<NodeJS.Timeout | null>(null)
 
   useEffect(()=> {
     createDictionary();
   },[])
 
+
+
+  const generateClipboardText =()  => {
+    if(interval) {
+      clearInterval(interval)
+      setInter(null);
+    }else{
+      setInter(setInterval(readClipboard, 2000))
+    }
+  };
 
   const  generatePlaceHolder =(num: number) => {
     let placeholder = '';
@@ -65,11 +102,28 @@ const AppView: React.FC = () => {
   };
 
 
-  const toggleModdal = (num?: number) => {
-    if(num){
-      setNumModal(num);
+  const toggleModdal = (char?: string) => {
+    if(char){
+      setCharModal(char);
+      //modal.classList.add('active');
+      //overlay.classList.add('active');
     }
     setOpenModal(!openModal)
+  }
+
+
+  const  readClipboard =() => {
+    theClipboard.readText().then(clipText =>{
+      if(clipText === previousClipboardText) {
+        return
+      }
+      console.log('changed')
+      setTextVal(clipText);
+      generateTranslation(clipText);
+      setPreviousClipboardText(clipText);
+    })
+    
+    
   }
 
   const juggleColors = (word: string, num: number) =>{
@@ -196,31 +250,31 @@ const AppView: React.FC = () => {
   const createDescriptions =(arrOfChars: Array<ExtendedCharType | leftoverWordType >) => {
     setTable(true);
     let DescriptionsArray: Array<ExtendedCharType | leftoverWordType >= [];
-    let moduleArrray: string[] = [];
+    let moduleArrray: ModuleProps = {};
     
   
   
     for(let i=0; i <arrOfChars.length; i++){
       
       if('meaning' in arrOfChars[i]){
+        let insideOfModule= `
+          <div class="bodyModal-div">
+              <p class="bodyModal-p">Char: ${(arrOfChars[i] as ExtendedCharType).char}</p>
+              <p class="bodyModal-p">Kana: ${(arrOfChars[i] as ExtendedCharType).kana}</p>
+              <p class="bodyModal-p">Meaning: ${(arrOfChars[i] as ExtendedCharType).meaning}</p>
+              <p class="bodyModal-p">Sentence: ${(arrOfChars[i] as ExtendedCharType).sentence}</p>
+              <p class="bodyModal-p">KanaSentence: ${(arrOfChars[i] as ExtendedCharType).sentenceKana}</p>
+          </div>
+          `
         if((arrOfChars[i] as ExtendedCharType).j){
           DescriptionsArray.push({...arrOfChars[i], char: arrOfChars[i].char.substring(0, arrOfChars[i].char.length-1)})
+          moduleArrray[arrOfChars[i].char.substring(0, arrOfChars[i].char.length-1)]=insideOfModule;
         }else{
-          DescriptionsArray.push(arrOfChars[i])
+          DescriptionsArray.push(arrOfChars[i]); 
+          
+          moduleArrray[arrOfChars[i].char]=insideOfModule;
         }
 
-        let insideOfModule= `
-        <div class="bodyModal-div">
-            <p class="bodyModal-p">Char: ${(arrOfChars[i] as ExtendedCharType).char}</p>
-            <p class="bodyModal-p">Kana: ${(arrOfChars[i] as ExtendedCharType).kana}</p>
-            <p class="bodyModal-p">Meaning: ${(arrOfChars[i] as ExtendedCharType).meaning}</p>
-            <p class="bodyModal-p">Sentence: ${(arrOfChars[i] as ExtendedCharType).sentence}</p>
-            <p class="bodyModal-p">KanaSentence: ${(arrOfChars[i] as ExtendedCharType).sentenceKana}</p>
-        </div>
-        `
-        
-        moduleArrray.push(insideOfModule);
-        
       }else{
         DescriptionsArray.push(arrOfChars[i])
       }
@@ -231,17 +285,16 @@ const AppView: React.FC = () => {
     setModalContent(moduleArrray);
     setDisplayText(DescriptionsArray);
   }
-  return (<div>
+  return (<Container>
       <div className="dispaly-text">
-        {console.log(modalContent[0])}
         {displayText && displayText.map((char)=> (
-          <p onClick={()=> toggleModdal(0)} key={char.index}>{char.char}</p>
+          <p onClick={()=> toggleModdal(char.char)} key={char.index}>{char.char}</p>
         ))}
       </div>
       <textarea className="text-area"   value={textVal} onChange={(e)=> setTextVal(e.target.value)} />
-      <button onClick={()=>  generateTranslation()}  id="button">Compile</button>
-      <button  id="generateClipboardText">Start/Stop reading from clipboard</button>
-      <button onClick={()=> toggleModdal()}>Close Modal</button>
+      <Button onClick={()=>  generateTranslation()}  id="button">Compile</Button>
+      <Button onClick={()=> generateClipboardText()} id="generateClipboardText">Start/Stop reading from clipboard</Button>
+      <Button onClick={()=> toggleModdal()}>Close Modal</Button>
       {table && <table id="table">
         <thead>
           <tr>
@@ -264,9 +317,10 @@ const AppView: React.FC = () => {
             </tr>
           ))}
         </tbody>
-      </table>} 
-      {openModal && <Modal modalContent={modalContent[numModal]} />} 
-    </div>)
+      </table>}
+      <GlobalStyle />
+      {openModal && <Modal modalContent={modalContent[charModal]} show={openModal} toggleModal={(modal: boolean)=> setOpenModal(modal)} />} 
+    </Container>)
 }
 
 export default  AppView;

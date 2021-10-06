@@ -3,3 +3,9 @@
   flex-direction: row;
   width: 100%;
 }
+
+.text-area {
+  min-width: 600px;
+  min-height: 400px;
+  font-size: 1.5em;
+}
